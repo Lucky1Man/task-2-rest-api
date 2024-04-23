@@ -47,10 +47,18 @@ public class ExecutionFactController {
     @ResponseStatus(HttpStatus.CREATED)
     @ApiResponse(
             responseCode = "201",
-            description = "Returns id of execution fact that was recorded",
+            description = "Returns id of execution fact that was recorded.",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
                     schema = @Schema(implementation = UUID.class)
+            )
+    )
+    @ApiResponse(
+            responseCode = "400",
+            description = "Returns message containing all validation errors.",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = ExceptionResponse.class)
             )
     )
     public ResponseEntity<UUID> recordExecutionFact(@RequestBody RecordExecutionFactDto factDto) {
@@ -67,7 +75,15 @@ public class ExecutionFactController {
                     schema = @Schema(implementation = GetExecutionFactDto.class)
             )
     )
-    public GetDetailedExecutionFactDto getByID(@PathVariable UUID id) {
+    @ApiResponse(
+            responseCode = "400",
+            description = "Means that execution fact with given id was not found",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = ExceptionResponse.class)
+            )
+    )
+    public GetDetailedExecutionFactDto getById(@PathVariable UUID id) {
         return factService.getById(id);
     }
 
@@ -79,6 +95,14 @@ public class ExecutionFactController {
     @ApiResponse(
             responseCode = "200",
             description = "Means that execution fact was updated and all given parameters were changed"
+    )
+    @ApiResponse(
+            responseCode = "400",
+            description = "Given data is invalid.",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = ExceptionResponse.class)
+            )
     )
     public void updateExecutionFact(@PathVariable UUID id, @RequestBody UpdateExecutionFactDto factDto) {
         factService.updateExecutionFact(id, factDto);

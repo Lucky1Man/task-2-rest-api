@@ -6,7 +6,7 @@ import jakarta.validation.ConstraintValidatorContext;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public class DateTimeRangeValidator implements ConstraintValidator<PasswordFormat, ObjectWithDateTimeRanges> {
+public class DateTimeRangeValidator implements ConstraintValidator<DateTimeRangeConstraint, ObjectWithDateTimeRanges> {
     @Override
     public boolean isValid(ObjectWithDateTimeRanges objectWithDateTimeRanges, ConstraintValidatorContext constraintValidatorContext) {
         List<DateTimeRange> validatedRanges = objectWithDateTimeRanges.getValidatedRanges();
@@ -19,7 +19,7 @@ public class DateTimeRangeValidator implements ConstraintValidator<PasswordForma
         LocalDateTime to = range.getTo();
         if(from != null && to != null && from.isAfter(to)) {
             ctx.buildConstraintViolationWithTemplate(
-                    "%s is before %s".formatted(range.getFromFieldName(), range.getToFieldName())
+                    "%s is after %s".formatted(range.getFromFieldName(), range.getToFieldName())
             ).addConstraintViolation();
             return false;
         }

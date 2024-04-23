@@ -1,5 +1,6 @@
 package org.example.task2restapi.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -8,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.example.task2restapi.validator.DateTimeRange;
 import org.example.task2restapi.validator.DateTimeRangeConstraint;
 import org.example.task2restapi.validator.ObjectWithDateTimeRanges;
+import org.hibernate.validator.constraints.Length;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
@@ -24,6 +26,7 @@ public class RecordExecutionFactDto implements ObjectWithDateTimeRanges {
     private UUID executorId;
 
     @NotNull(message = "Execution fact must have description")
+    @Length(min = 1, max = 500)
     private String description;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -35,6 +38,7 @@ public class RecordExecutionFactDto implements ObjectWithDateTimeRanges {
     private LocalDateTime finishTime;
 
     @Override
+    @JsonIgnore
     public List<DateTimeRange> getValidatedRanges() {
         return List.of(
                 new DateTimeRange(startTime, finishTime, "startTime", "finishTime")

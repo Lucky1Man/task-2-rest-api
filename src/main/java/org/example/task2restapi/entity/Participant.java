@@ -57,16 +57,6 @@ public class Participant {
     @NotNull(message = "Participant must have email")
     private String email;
 
-    @Column(
-            name = "password",
-            nullable = false,
-            columnDefinition = "varchar(60)"
-    )
-    @Length(min = 60, max = 60)
-    @NotNull(message = "Participant must have password")
-    private String password;
-
-
     @Version
     private Long version;
 
