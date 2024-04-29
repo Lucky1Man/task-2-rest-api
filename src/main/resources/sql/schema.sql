@@ -1,19 +1,21 @@
-create table execution_facts (
-                                 id uuid not null,
-                                 description varchar(500) not null,
-                                 finish_time timestamp(6),
-                                 start_time timestamp(6) not null,
-                                 version bigint,
-                                 executor_id uuid not null,
-                                 primary key (id)
+create table execution_facts
+(
+    id          uuid         not null,
+    description varchar(500) not null,
+    finish_time timestamp(6),
+    start_time  timestamp(6) not null,
+    version     bigint,
+    executor_id uuid         not null,
+    primary key (id)
 );
 
-create table participants (
-                              id uuid not null,
-                              email varchar(320) not null,
-                              full_name varchar(100) not null,
-                              version bigint,
-                              primary key (id)
+create table participants
+(
+    id        uuid         not null,
+    email     varchar(320) not null,
+    full_name varchar(100) not null,
+    version   bigint,
+    primary key (id)
 );
 
 alter table if exists participants

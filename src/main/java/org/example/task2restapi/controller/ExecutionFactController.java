@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -61,8 +62,9 @@ public class ExecutionFactController {
                     schema = @Schema(implementation = ExceptionResponse.class)
             )
     )
-    public ResponseEntity<UUID> recordExecutionFact(@RequestBody RecordExecutionFactDto factDto) {
-        return ResponseEntity.status(HttpStatus.CREATED.value()).body(factService.recordExecutionFact(factDto));
+    public ResponseEntity<Map<String, UUID>> recordExecutionFact(@RequestBody RecordExecutionFactDto factDto) {
+        return ResponseEntity.status(HttpStatus.CREATED.value())
+                .body(Map.of("id", factService.recordExecutionFact(factDto)));
     }
 
     @GetMapping("/{id}")
@@ -110,19 +112,11 @@ public class ExecutionFactController {
 
     @DeleteMapping("/{id}")
     @Operation(
-            description = "Deletes execution fact with given id"
+            description = "Deletes execution fact with given id, if given id does not exist it ignores it."
     )
     @ApiResponse(
             responseCode = "200",
             description = "Means that execution fact was deleted"
-    )
-    @ApiResponse(
-            responseCode = "400",
-            description = "Means that execution fact with given id does not exist",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = ExceptionResponse.class)
-            )
     )
     public void deleteExecutionFact(@PathVariable UUID id) {
         factService.deleteById(id);

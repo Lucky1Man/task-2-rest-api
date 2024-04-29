@@ -12,6 +12,7 @@ import org.example.task2restapi.entity.ExecutionFact;
 import org.example.task2restapi.entity.Participant;
 import org.example.task2restapi.repository.ExecutionFactRepository;
 import org.example.task2restapi.repository.ParticipantRepository;
+import org.example.task2restapi.service.DateTimeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,11 +25,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.reset;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -54,6 +57,9 @@ class ExecutionFactControllerTest {
     @Autowired
     ObjectMapper objectMapper;
 
+    @SpyBean
+    DateTimeService timeService;
+
     List<Participant> initialParticipants = List.of(
             Participant.builder()
                     .withFullName("Test 1")
@@ -67,9 +73,9 @@ class ExecutionFactControllerTest {
 
     @BeforeEach
     void initDb() {
-        participantRepository.deleteAll();
         executionFactRepository.deleteAll();
-        initialParticipants = participantRepository.saveAll(initialParticipants);
+        participantRepository.deleteAll();
+        initialParticipants = participantRepository.saveAllAndFlush(initialParticipants);
         reset(participantRepository, executionFactRepository);
     }
 
@@ -109,13 +115,76 @@ class ExecutionFactControllerTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         //then
-        UUID id = assertDoesNotThrow(() -> UUID.fromString(result), "Returned id should be valid.");
+        UUID id = assertDoesNotThrow(
+                () -> UUID.fromString(objectMapper.readValue(result, Map.class).get("id").toString()),
+                "Returned id should be valid."
+        );
         ExecutionFact fromDb = executionFactRepository.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Given fact was not saved."));
         assertEquals(executionFactDto.getExecutorId(), fromDb.getExecutor().getId());
         assertEquals(executionFactDto.getDescription(), fromDb.getDescription());
         assertEquals(executionFactDto.getStartTime(), fromDb.getStartTime());
         assertEquals(executionFactDto.getFinishTime(), fromDb.getFinishTime());
+    }
+
+    @SneakyThrows
+    @Test
+    void recordExecutionFact_shouldSaveWithDefaultStartTime_ifNoneWasPresentInRecordDTO() {
+        //given
+        LocalDateTime startTime = LocalDateTime.of(2010, 1, 1, 0, 0);
+        UUID participantId = initialParticipants.get(0).getId();
+        String description = String.join("", Collections.nCopies(500, "a"));
+        RecordExecutionFactDto executionFactDto = new RecordExecutionFactDto(
+                participantId, description, null, null
+        );
+        doReturn(startTime).when(timeService).utcNow();
+        //when
+        String result = mockMvc.perform(
+                        post("/api/v1/execution-facts")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(executionFactDto)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        //then
+        UUID id = assertDoesNotThrow(
+                () -> UUID.fromString(objectMapper.readValue(result, Map.class).get("id").toString()),
+                "Returned id should be valid."
+        );
+        ExecutionFact fromDb = executionFactRepository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("Given fact was not saved."));
+        assertEquals(executionFactDto.getExecutorId(), fromDb.getExecutor().getId());
+        assertEquals(executionFactDto.getDescription(), fromDb.getDescription());
+        assertEquals(startTime, fromDb.getStartTime());
+        assertEquals(executionFactDto.getFinishTime(), fromDb.getFinishTime());
+    }
+
+    @SneakyThrows
+    @Test
+    void recordExecutionFact_shouldReturnExceptionResponse_ifRecordDtoContainsFinishTimeButDoesNotStartTime() {
+        //given
+        LocalDateTime startTime = null;
+        LocalDateTime finishTime = LocalDateTime.of(2000, 1, 1, 0, 0);
+        UUID participantId = initialParticipants.get(0).getId();
+        String description = String.join("", Collections.nCopies(500, "a"));
+        RecordExecutionFactDto executionFactDto = new RecordExecutionFactDto(
+                participantId, description, startTime, finishTime
+        );
+        //when
+        String result = mockMvc.perform(
+                        post("/api/v1/execution-facts")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(executionFactDto)))
+                .andExpect(status().isBadRequest())
+                .andReturn().getResponse().getContentAsString();
+        //then
+        ExceptionResponse exception = assertDoesNotThrow(
+                () -> objectMapper.readValue(result, ExceptionResponse.class),
+                "It should return exception"
+        );
+        assertTrue(
+                exception.getMessage().contains("Start time must be specified if finish time is"),
+                "Should contain message"
+        );
     }
 
     @SneakyThrows
@@ -370,20 +439,15 @@ class ExecutionFactControllerTest {
 
     @Test
     @SneakyThrows
-    void deleteExecutionFact_shouldReturnExceptionResponse_ifGivenFactIdDoesNotExist() {
+    void deleteExecutionFact_shouldIgnore_ifGivenFactIdDoesNotExist() {
         //given
         ExecutionFact saved = saveAndGetStandardExecutionFactFromDb();
         UUID factId = UUID.randomUUID();
         //when
-        String result = mockMvc.perform(
-                        delete("/api/v1/execution-facts/" + factId))
-                .andExpect(status().isBadRequest())
-                .andReturn().getResponse().getContentAsString();
-        ExceptionResponse exceptions = assertDoesNotThrow(() -> objectMapper.readValue(result, ExceptionResponse.class), "It should return exceptions");
-        assertTrue(exceptions.getMessage().contains("Execution fact with id '%s' not found".formatted(factId)),
-                "Should contain execution fact not found message.");
+        mockMvc.perform(delete("/api/v1/execution-facts/" + factId))
+                .andExpect(status().isOk());
+        //then
         assertTrue(executionFactRepository.findById(saved.getId()).isPresent(), "It should not affect other records in db");
     }
-
 
 }
