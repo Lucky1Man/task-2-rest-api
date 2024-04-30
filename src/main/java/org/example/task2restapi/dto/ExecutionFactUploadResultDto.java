@@ -3,15 +3,14 @@ package org.example.task2restapi.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.example.task2restapi.controller.ExceptionResponse;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExecutionFactUploadResultDto {
-    private Integer addedCount;
-    private Map<RecordExecutionFactDto, Set<ExceptionResponse>> objectToItsViolations;
+    private Integer importedCount;
+    private Integer failedCount;
+    private List<RecordFactToItsValidationExceptions> objectToItsErrors;
 }

@@ -1,16 +1,23 @@
 package org.example.task2restapi.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
+import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotNull;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import org.example.task2restapi.controller.ExceptionResponse;
 import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.dto.ExecutionFactUploadResultDto;
 import org.example.task2restapi.dto.GetDetailedExecutionFactDto;
 import org.example.task2restapi.dto.GetExecutionFactDto;
 import org.example.task2restapi.dto.RecordExecutionFactDto;
+import org.example.task2restapi.dto.RecordFactToItsValidationExceptions;
 import org.example.task2restapi.dto.UpdateExecutionFactDto;
 import org.example.task2restapi.entity.ExecutionFact;
 import org.example.task2restapi.entity.Participant;
@@ -19,10 +26,12 @@ import org.example.task2restapi.repository.ParticipantRepository;
 import org.example.task2restapi.service.DateTimeService;
 import org.example.task2restapi.service.ExecutionFactService;
 import org.example.task2restapi.specification.ExecutionFactSpecs;
+import org.modelmapper.MappingException;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.spi.MappingContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,7 +43,10 @@ import java.io.UncheckedIOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -53,19 +65,26 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
 
     private final ExecutionFactSpecs executionFactSpecs;
 
+    private final Validator validator;
+
+    private final ObjectMapper objectMapper;
+
     public ExecutionFactServiceImpl(ExecutionFactRepository factRepository,
                                     ParticipantRepository participantRepository,
                                     ModelMapper modelMapper,
                                     DateTimeService dateTimeService,
                                     @Qualifier("executionFactsMaxPageSize")
                                     Integer getFactsMaxPageSize,
-                                    ExecutionFactSpecs executionFactSpecs) {
+                                    ExecutionFactSpecs executionFactSpecs,
+                                    Validator validator, ObjectMapper objectMapper) {
         this.factRepository = factRepository;
         this.participantRepository = participantRepository;
         this.modelMapper = modelMapper;
         this.dateTimeService = dateTimeService;
         this.getFactsMaxPageSize = getFactsMaxPageSize;
         this.executionFactSpecs = executionFactSpecs;
+        this.validator = validator;
+        this.objectMapper = objectMapper;
     }
 
     @PostConstruct
@@ -199,6 +218,51 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
 
     @Override
     public ExecutionFactUploadResultDto uploadFromFile(@NotNull MultipartFile multipart) {
-        return null;
+        try {
+            byte[] fileBytes = multipart.getBytes();
+            int importedCount = 0;
+            int failedCount = 0;
+            List<RecordFactToItsValidationExceptions> invalidRecordDtosToItsValidationExceptions = new LinkedList<>();
+            List<RecordExecutionFactDto> factDtos = objectMapper.readValue(fileBytes, new TypeReference<>() {});
+            for(RecordExecutionFactDto dto : factDtos) {
+                Optional<RecordFactToItsValidationExceptions> exceptions = resolveFact(dto);
+                if(exceptions.isPresent()) {
+                    invalidRecordDtosToItsValidationExceptions.add(exceptions.get());
+                    failedCount++;
+                } else {
+                    importedCount++;
+                }
+            }
+            return new ExecutionFactUploadResultDto(importedCount, failedCount, invalidRecordDtosToItsValidationExceptions);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private Optional<RecordFactToItsValidationExceptions> resolveFact(RecordExecutionFactDto factDto) {
+        try {
+            Set<ConstraintViolation<RecordExecutionFactDto>> validate = validator.validate(factDto);
+            if(validate.isEmpty()) {
+                recordExecutionFact(factDto);
+                return Optional.empty();
+            }
+            return Optional.of(
+                    new RecordFactToItsValidationExceptions(
+                            factDto, toExceptionResponse(new ConstraintViolationException(validate))
+                    )
+            );
+        } catch (MappingException e) {
+            return Optional.of(
+                    new RecordFactToItsValidationExceptions(factDto, toExceptionResponse(e.getCause()))
+            );
+        }
+    }
+
+    private ExceptionResponse toExceptionResponse(Throwable e) {
+        return ExceptionResponse.builder()
+                        .withHttpStatus(HttpStatus.BAD_REQUEST)
+                        .withDate(dateTimeService.utcNow())
+                        .withMessage(e.getMessage())
+                        .build();
     }
 }

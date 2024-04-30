@@ -6,9 +6,11 @@ import lombok.SneakyThrows;
 import org.example.task2restapi.Task2RestApiApplication;
 import org.example.task2restapi.config.TestDbConfig;
 import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
+import org.example.task2restapi.dto.ExecutionFactUploadResultDto;
 import org.example.task2restapi.dto.GetDetailedExecutionFactDto;
 import org.example.task2restapi.dto.GetParticipantDto;
 import org.example.task2restapi.dto.RecordExecutionFactDto;
+import org.example.task2restapi.dto.RecordFactToItsValidationExceptions;
 import org.example.task2restapi.dto.UpdateExecutionFactDto;
 import org.example.task2restapi.entity.ExecutionFact;
 import org.example.task2restapi.entity.Participant;
@@ -22,6 +24,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -32,6 +35,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -42,6 +46,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.reset;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -641,17 +646,17 @@ class ExecutionFactControllerTest {
         //then
         assertTrue(
                 "%s,%s,%s,%s,%s,%s\r\n".formatted(firstSuitable.getId(),
-                        firstSuitable.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),
-                        firstSuitable.getFinishTime().format(DateTimeFormatter.ISO_DATE_TIME),
-                        firstSuitable.getExecutor().getFullName(), firstSuitable.getExecutor().getId(),
-                        firstSuitable.getDescription())
+                                firstSuitable.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                                firstSuitable.getFinishTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                                firstSuitable.getExecutor().getFullName(), firstSuitable.getExecutor().getId(),
+                                firstSuitable.getDescription())
                         .equals(resultString)
                 ||
                 "%s,%s,%s,%s,%s,%s\r\n".formatted(secondSuitable.getId(),
-                        secondSuitable.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),
-                        secondSuitable.getFinishTime().format(DateTimeFormatter.ISO_DATE_TIME),
-                        secondSuitable.getExecutor().getFullName(), secondSuitable.getExecutor().getId(),
-                        secondSuitable.getDescription())
+                                secondSuitable.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                                secondSuitable.getFinishTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                                secondSuitable.getExecutor().getFullName(), secondSuitable.getExecutor().getId(),
+                                secondSuitable.getDescription())
                         .equals(resultString),
                 "It should contain only one object as filter has pageSize specified");
     }
@@ -729,6 +734,79 @@ class ExecutionFactControllerTest {
                         "pageSize: must be less then or equal to %s".formatted(executionFactsMaxPageSize)),
                 "no pageSize max value message"
         );
+    }
+
+    @Test
+    @SneakyThrows
+    void uploadFromFile_shouldSaveValidFactsAndReturnRightResponse() {
+        //given
+        RecordExecutionFactDto valid1 = RecordExecutionFactDto.builder()
+                .withDescription("asdasd")
+                .withExecutorId(initialParticipants.get(0).getId())
+                .withStartTime(LocalDateTime.of(2003, 1, 1, 0, 0))
+                .withFinishTime(LocalDateTime.of(2003, 1, 2, 0, 0))
+                .build();
+        RecordExecutionFactDto valid2 = RecordExecutionFactDto.builder()
+                .withDescription("asdaasdasdad")
+                .withExecutorId(initialParticipants.get(1).getId())
+                .withStartTime(LocalDateTime.of(2002, 1, 1, 0, 0))
+                .withFinishTime(LocalDateTime.of(2004, 1, 2, 0, 0))
+                .build();
+        RecordExecutionFactDto invalid1 = RecordExecutionFactDto.builder()
+                .withStartTime(LocalDateTime.of(2004, 1, 1, 0, 0))
+                .withFinishTime(LocalDateTime.of(2003, 1, 2, 0, 0))
+                .build();
+        RecordExecutionFactDto invalid2 = RecordExecutionFactDto.builder()
+                .withDescription(String.join("", Collections.nCopies(501, "b")))
+                .build();
+        RecordExecutionFactDto invalid3 = RecordExecutionFactDto.builder()
+                .withExecutorId(UUID.randomUUID())
+                .withDescription("asdasd")
+                .build();
+        List<RecordExecutionFactDto> facts = List.of(
+                valid1,
+                invalid1,
+                invalid2,
+                invalid3,
+                valid2
+        );
+        //when
+        String resultJson = mockMvc.perform(
+                        multipart(HttpMethod.POST, "/api/v1/execution-facts/upload")
+                                .file("file", objectMapper.writeValueAsBytes(facts))
+                )
+                .andExpect(status().isCreated())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn().getResponse().getContentAsString();
+        //then
+        ExecutionFactUploadResultDto resultDto = objectMapper.readValue(resultJson, ExecutionFactUploadResultDto.class);
+        assertEquals(3, resultDto.getFailedCount(), "must have right failed count");
+        assertEquals(2, resultDto.getImportedCount(), "must have right imported count");
+        List<RecordFactToItsValidationExceptions> objectToItsErrors = resultDto.getObjectToItsErrors();
+        Optional<RecordFactToItsValidationExceptions> actual1 = objectToItsErrors.stream().filter(o -> invalid1.equals(o.getFactDto())).findFirst();
+        assertTrue(
+                actual1.isPresent(),
+                "must return first invalid object"
+        );
+        String actual1Messages = actual1.get().getErrors().getMessage();
+        assertTrue(actual1Messages.contains("executorId: Execution fact must have executor id"));
+        assertTrue(actual1Messages.contains("startTime is after finishTime"));
+        assertTrue(actual1Messages.contains("description: Execution fact must have description"));
+        Optional<RecordFactToItsValidationExceptions> actual2 = objectToItsErrors.stream().filter(o -> invalid2.equals(o.getFactDto())).findFirst();
+        assertTrue(
+                actual2.isPresent(),
+                "must return second invalid object"
+        );
+        String actual2Messages = actual2.get().getErrors().getMessage();
+        assertTrue(actual2Messages.contains("executorId: Execution fact must have executor id"));
+        assertTrue(actual2Messages.contains("description: length must be between 1 and 500"));
+        Optional<RecordFactToItsValidationExceptions> actual3 = objectToItsErrors.stream().filter(o -> invalid3.equals(o.getFactDto())).findFirst();
+        assertTrue(
+                actual3.isPresent(),
+                "must return third invalid object"
+        );
+        String actual3Messages = actual3.get().getErrors().getMessage();
+        assertEquals("Executor with id '%s' not found".formatted(invalid3.getExecutorId()), actual3Messages);
     }
 
 }

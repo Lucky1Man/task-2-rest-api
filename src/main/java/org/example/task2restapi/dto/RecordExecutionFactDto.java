@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.example.task2restapi.validator.datetime.range.DateTimeRange;
@@ -20,6 +21,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @DateTimeRangeConstraint
+@Builder(setterPrefix = "with")
 public class RecordExecutionFactDto implements ObjectWithDateTimeRanges {
 
     @NotNull(message = "Execution fact must have executor id")

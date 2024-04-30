@@ -1,6 +1,8 @@
 package org.example.task2restapi.controller;
 
 import lombok.Generated;
+import lombok.RequiredArgsConstructor;
+import org.example.task2restapi.service.DateTimeService;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -8,12 +10,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
-
 
 @RestControllerAdvice
 @Generated
+@RequiredArgsConstructor
 public class RestControllerExceptionHandler {
+
+    private final DateTimeService dateTimeService;
 
     @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -21,7 +24,7 @@ public class RestControllerExceptionHandler {
         return ExceptionResponse.builder()
                 .withMessage(e.getMessage())
                 .withHttpStatus(HttpStatus.BAD_REQUEST)
-                .withDate(LocalDateTime.now())
+                .withDate(dateTimeService.utcNow())
                 .build();
     }
 
@@ -32,7 +35,7 @@ public class RestControllerExceptionHandler {
         return ExceptionResponse.builder()
                 .withMessage(e.getMessage())
                 .withHttpStatus(HttpStatus.BAD_REQUEST)
-                .withDate(LocalDateTime.now())
+                .withDate(dateTimeService.utcNow())
                 .build();
     }
 
@@ -44,7 +47,7 @@ public class RestControllerExceptionHandler {
         return ExceptionResponse.builder()
                 .withMessage(e.getMessage())
                 .withHttpStatus(HttpStatus.BAD_REQUEST)
-                .withDate(LocalDateTime.now())
+                .withDate(dateTimeService.utcNow())
                 .build();
     }
 
@@ -55,7 +58,7 @@ public class RestControllerExceptionHandler {
         return ExceptionResponse.builder()
                 .withMessage(e.getMessage())
                 .withHttpStatus(HttpStatus.BAD_REQUEST)
-                .withDate(LocalDateTime.now())
+                .withDate(dateTimeService.utcNow())
                 .build();
     }
 
@@ -66,7 +69,7 @@ public class RestControllerExceptionHandler {
         return ExceptionResponse.builder()
                 .withMessage(e.getMessage())
                 .withHttpStatus(HttpStatus.BAD_REQUEST)
-                .withDate(LocalDateTime.now())
+                .withDate(dateTimeService.utcNow())
                 .build();
     }
 
