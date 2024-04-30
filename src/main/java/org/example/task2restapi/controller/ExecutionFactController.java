@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.dto.ExecutionFactUploadResultDto;
@@ -15,6 +14,9 @@ import org.example.task2restapi.dto.GetExecutionFactDto;
 import org.example.task2restapi.dto.RecordExecutionFactDto;
 import org.example.task2restapi.dto.UpdateExecutionFactDto;
 import org.example.task2restapi.service.ExecutionFactService;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -124,7 +126,7 @@ public class ExecutionFactController {
 
     @PostMapping(path = "/_list")
     @Operation(description = "Returns execution facts based on given filter. Pagination is zero based. " +
-                             "If fromFinishTime or toFinishTime is null then both of them are ignored." +
+                             "If fromFinishTime or toFinishTime is null then both of them are ignored. " +
                              "Default values: pageIndex = 0, pageSize = 50")
     @ApiResponse(
             responseCode = "200",
@@ -150,17 +152,32 @@ public class ExecutionFactController {
         return factService.findAll(factFilterOptionsDto);
     }
 
-    @PostMapping(value = "/_report", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    @Operation(description = "Generates file containing all execution facts specified by filter")
+    @PostMapping(value = "/_report", produces = "application/csv")
+    @Operation(description = "Generates csv file containing all based on given filter. Pagination is zero based. " +
+                             "If fromFinishTime or toFinishTime is null then both of them are ignored. " +
+                             "Default values: pageIndex = 0, pageSize = 50")
     @ApiResponse(
             responseCode = "200",
             description = "Retrieved",
             content = @Content(
-                    mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE
+                    mediaType = "application/csv"
             )
     )
-    public void generateReport(@RequestBody ExecutionFactFilterOptionsDto factFilterOptionsDto, HttpServletResponse response) {
-        factService.generateReport(factFilterOptionsDto, response);
+    @ApiResponse(
+            responseCode = "400",
+            description = "Given filter is invalid, detailed message provided",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    array = @ArraySchema(
+                            schema = @Schema(implementation = ExceptionResponse.class)
+                    )
+            )
+    )
+    public ResponseEntity<Resource> generateReport(@RequestBody ExecutionFactFilterOptionsDto factFilterOptionsDto) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=execution-facts.csv")
+                .contentType(MediaType.parseMediaType("application/csv"))
+                .body(new InputStreamResource(factService.generateCsvReport(factFilterOptionsDto)));
     }
 
     @PostMapping("/upload")

@@ -19,6 +19,7 @@
         <springdoc-openapi-starter-webmvc-ui.version>2.3.0</springdoc-openapi-starter-webmvc-ui.version>
         <h2.version>2.2.224</h2.version>
         <modelmapper.version>3.1.1</modelmapper.version>
+        <commons-csv.version>1.8</commons-csv.version>
     </properties>
     <dependencies>
         <dependency>
@@ -42,6 +43,11 @@
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-jpamodelgen</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>${commons-csv.version}</version>
         </dependency>
         <dependency>
             <groupId>org.modelmapper</groupId>

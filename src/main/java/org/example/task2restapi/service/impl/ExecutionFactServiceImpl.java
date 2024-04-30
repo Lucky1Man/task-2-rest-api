@@ -1,10 +1,11 @@
 package org.example.task2restapi.service.impl;
 
 import jakarta.annotation.PostConstruct;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.dto.ExecutionFactUploadResultDto;
 import org.example.task2restapi.dto.GetDetailedExecutionFactDto;
@@ -25,7 +26,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.UncheckedIOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -166,8 +174,27 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
     }
 
     @Override
-    public void generateReport(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto, @NotNull HttpServletResponse response) {
-
+    public ByteArrayInputStream generateCsvReport(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto) {
+        try (
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                CSVPrinter csvPrinter = new CSVPrinter(new PrintWriter(out), CSVFormat.DEFAULT)
+        ) {
+            for (GetExecutionFactDto fact : findAll(factFilterOptionsDto)) {
+                List<String> data = Arrays.asList(
+                        String.valueOf(fact.getId()),
+                        fact.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                        fact.getFinishTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                        fact.getExecutorFullName(),
+                        String.valueOf(fact.getExecutorId()),
+                        fact.getDescription()
+                );
+                csvPrinter.printRecord(data);
+            }
+            csvPrinter.flush();
+            return new ByteArrayInputStream(out.toByteArray());
+        } catch (IOException e) {
+            throw new UncheckedIOException("Fail to import data to CSV file: " + e.getMessage(), e);
+        }
     }
 
     @Override

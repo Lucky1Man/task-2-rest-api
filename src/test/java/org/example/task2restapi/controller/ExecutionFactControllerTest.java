@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -588,6 +589,135 @@ class ExecutionFactControllerTest {
         //when
         String resultJson = mockMvc.perform(
                         post("/api/v1/execution-facts/_list")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(filterOptionsDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn().getResponse().getContentAsString();
+        //then
+        ExceptionResponse exceptions = assertDoesNotThrow(() -> objectMapper.readValue(resultJson, ExceptionResponse.class), "It should return exceptions");
+        assertTrue(exceptions.getMessage().contains(
+                        "pageSize: must be less then or equal to %s".formatted(executionFactsMaxPageSize)),
+                "no pageSize max value message"
+        );
+    }
+
+    @Test
+    @SneakyThrows
+    void generateReport_shouldGenerateRightReportForGivenFilter() {
+        //given
+        saveRandomFacts();
+        Participant expectedParticipant = initialParticipants.get(0);
+        String executorEmail = expectedParticipant.getEmail();
+        LocalDateTime fromFinishTime = LocalDateTime.of(2003, 1, 1, 0, 0);
+        LocalDateTime toFinishTime = fromFinishTime.plusYears(1);
+        String description = "expected description";
+        Integer pageIndex = 1;
+        Integer pageSize = 1;
+        ExecutionFactFilterOptionsDto filterOptionsDto = new ExecutionFactFilterOptionsDto(
+                executorEmail, fromFinishTime, toFinishTime, description, pageIndex, pageSize
+        );
+        LocalDateTime finishTime = findMiddleDateTime(fromFinishTime, toFinishTime);
+        ExecutionFact firstSuitable = executionFactRepository.saveAndFlush(ExecutionFact.builder()
+                .withDescription(description)
+                .withExecutor(expectedParticipant)
+                .withStartTime(finishTime.minusMonths(4))
+                .withFinishTime(finishTime)
+                .build());
+        ExecutionFact secondSuitable = executionFactRepository.saveAndFlush(ExecutionFact.builder()
+                .withDescription(description)
+                .withExecutor(expectedParticipant)
+                .withStartTime(finishTime.minusMonths(2))
+                .withFinishTime(finishTime)
+                .build());
+        //when
+        String resultString = mockMvc.perform(
+                        post("/api/v1/execution-facts/_report")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(filterOptionsDto)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.parseMediaType("application/csv")))
+                .andReturn().getResponse().getContentAsString();
+        //then
+        assertTrue(
+                "%s,%s,%s,%s,%s,%s\r\n".formatted(firstSuitable.getId(),
+                        firstSuitable.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                        firstSuitable.getFinishTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                        firstSuitable.getExecutor().getFullName(), firstSuitable.getExecutor().getId(),
+                        firstSuitable.getDescription())
+                        .equals(resultString)
+                ||
+                "%s,%s,%s,%s,%s,%s\r\n".formatted(secondSuitable.getId(),
+                        secondSuitable.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                        secondSuitable.getFinishTime().format(DateTimeFormatter.ISO_DATE_TIME),
+                        secondSuitable.getExecutor().getFullName(), secondSuitable.getExecutor().getId(),
+                        secondSuitable.getDescription())
+                        .equals(resultString),
+                "It should contain only one object as filter has pageSize specified");
+    }
+
+    @Test
+    @SneakyThrows
+    void generateReport_shouldReturnExceptionMessageContainingAllValidationErrors_ifGivenInvalidDto() {
+        //given
+        String executorEmail = "bad%email";
+        LocalDateTime fromFinishTime = LocalDateTime.of(2003, 1, 1, 0, 0);
+        LocalDateTime toFinishTime = fromFinishTime.minusMonths(1);
+        String description = String.join("", Collections.nCopies(501, "a"));
+        Integer pageIndex = -1;
+        Integer pageSize = 0;
+        ExecutionFactFilterOptionsDto filterOptionsDto = new ExecutionFactFilterOptionsDto(
+                executorEmail, fromFinishTime, toFinishTime, description, pageIndex, pageSize
+        );
+        //when
+        String resultJson = mockMvc.perform(
+                        post("/api/v1/execution-facts/_report")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(filterOptionsDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn().getResponse().getContentAsString();
+        //then
+        ExceptionResponse exceptions = assertDoesNotThrow(() -> objectMapper.readValue(resultJson, ExceptionResponse.class), "It should return exceptions");
+        assertTrue(exceptions.getMessage().contains(
+                        "pageSize: must be greater than 0"),
+                "no pageSize message"
+        );
+        assertTrue(exceptions.getMessage().contains(
+                        "factFilterOptionsDto: fromFinishTime is after toFinishTime"),
+                "no range validation message"
+        );
+        assertTrue(exceptions.getMessage().contains(
+                        "description: length must be between 1 and 500"),
+                "no description message"
+        );
+        assertTrue(exceptions.getMessage().contains(
+                        "pageIndex: must be greater than or equal to 0"),
+                "no pageIndex message"
+        );
+        assertTrue(exceptions.getMessage().contains(
+                        "executorEmail: must be a well-formed email address"),
+                "no executorEmail message"
+        );
+    }
+
+    @Test
+    @SneakyThrows
+    void generateReport_shouldReturnExceptionMessage_ifGivenPageSizeExceedsTheLimit() {
+        //given
+        Participant expectedParticipant = initialParticipants.get(0);
+        String executorEmail = expectedParticipant.getEmail();
+        LocalDateTime fromFinishTime = LocalDateTime.of(2003, 1, 1, 0, 0);
+        LocalDateTime toFinishTime = fromFinishTime.plusYears(1);
+        String description = "expected description";
+        Integer pageIndex = 1;
+        Integer pageSize = executionFactsMaxPageSize + 1;
+        ExecutionFactFilterOptionsDto filterOptionsDto = new ExecutionFactFilterOptionsDto(
+                executorEmail, fromFinishTime, toFinishTime, description, pageIndex, pageSize
+        );
+        //when
+        String resultJson = mockMvc.perform(
+                        post("/api/v1/execution-facts/_report")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(filterOptionsDto)))
                 .andExpect(status().isBadRequest())

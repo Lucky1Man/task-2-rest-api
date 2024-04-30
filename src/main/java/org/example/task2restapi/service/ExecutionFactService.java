@@ -1,6 +1,5 @@
 package org.example.task2restapi.service;
 
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
@@ -12,6 +11,7 @@ import org.example.task2restapi.dto.UpdateExecutionFactDto;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,7 +27,7 @@ public interface ExecutionFactService {
 
     List<GetExecutionFactDto> findAll(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto);
 
-    void generateReport(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto, @NotNull HttpServletResponse response);
+    ByteArrayInputStream generateCsvReport(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto);
 
     ExecutionFactUploadResultDto uploadFromFile(@NotNull MultipartFile multipart);
 }
