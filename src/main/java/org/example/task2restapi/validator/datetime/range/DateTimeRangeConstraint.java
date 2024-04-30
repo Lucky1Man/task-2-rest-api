@@ -1,4 +1,4 @@
-package org.example.task2restapi.validator;
+package org.example.task2restapi.validator.datetime.range;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;
@@ -10,11 +10,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Documented
-@Constraint(validatedBy = PasswordValidator.class)
-@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Constraint(validatedBy = DateTimeRangeValidator.class)
+@Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface PasswordFormat {
-    String message() default "The only allowed characters for password are english letters, number, _, & and -";
+public @interface DateTimeRangeConstraint {
+    String message() default "From date time is after to date time";
 
     Class<?>[] groups() default {};
 

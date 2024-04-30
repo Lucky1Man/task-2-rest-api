@@ -43,7 +43,7 @@ public class ExecutionFactController {
 
     @PostMapping
     @Operation(
-            description = "Records given execution fact."
+            description = "Records given execution fact. If start time is not given then current time by UTC is assigned."
     )
     @ResponseStatus(HttpStatus.CREATED)
     @ApiResponse(
@@ -123,7 +123,9 @@ public class ExecutionFactController {
     }
 
     @PostMapping(path = "/_list")
-    @Operation(description = "Returns execution facts based on given filter")
+    @Operation(description = "Returns execution facts based on given filter. Pagination is zero based. " +
+                             "If fromFinishTime or toFinishTime is null then both of them are ignored." +
+                             "Default values: pageIndex = 0, pageSize = 50")
     @ApiResponse(
             responseCode = "200",
             description = "Retrieved",
@@ -131,6 +133,16 @@ public class ExecutionFactController {
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
                     array = @ArraySchema(
                             schema = @Schema(implementation = GetExecutionFactDto.class)
+                    )
+            )
+    )
+    @ApiResponse(
+            responseCode = "400",
+            description = "Given filter is invalid, detailed message provided",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    array = @ArraySchema(
+                            schema = @Schema(implementation = ExceptionResponse.class)
                     )
             )
     )

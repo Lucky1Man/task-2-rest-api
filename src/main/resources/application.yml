@@ -10,3 +10,8 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
+configuration:
+  endpoints:
+    execution-fact:
+      _list:
+        max-page-size: 500

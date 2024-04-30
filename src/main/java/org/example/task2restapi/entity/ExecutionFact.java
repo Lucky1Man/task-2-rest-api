@@ -15,9 +15,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
-import org.example.task2restapi.validator.DateTimeRange;
-import org.example.task2restapi.validator.DateTimeRangeConstraint;
-import org.example.task2restapi.validator.ObjectWithDateTimeRanges;
+import org.example.task2restapi.validator.datetime.range.DateTimeRange;
+import org.example.task2restapi.validator.datetime.range.DateTimeRangeConstraint;
+import org.example.task2restapi.validator.datetime.range.ObjectWithDateTimeRanges;
 import org.hibernate.validator.constraints.Length;
 import org.springframework.format.annotation.DateTimeFormat;
 

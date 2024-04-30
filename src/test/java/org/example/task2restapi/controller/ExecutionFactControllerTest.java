@@ -1,9 +1,11 @@
 package org.example.task2restapi.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.example.task2restapi.Task2RestApiApplication;
 import org.example.task2restapi.config.TestDbConfig;
+import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.dto.GetDetailedExecutionFactDto;
 import org.example.task2restapi.dto.GetParticipantDto;
 import org.example.task2restapi.dto.RecordExecutionFactDto;
@@ -16,6 +18,7 @@ import org.example.task2restapi.service.DateTimeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
@@ -23,10 +26,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,6 +43,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(
@@ -59,6 +66,10 @@ class ExecutionFactControllerTest {
 
     @SpyBean
     DateTimeService timeService;
+
+    @Autowired
+    @Qualifier("executionFactsMaxPageSize")
+    Integer executionFactsMaxPageSize;
 
     List<Participant> initialParticipants = List.of(
             Participant.builder()
@@ -207,9 +218,9 @@ class ExecutionFactControllerTest {
                 .andReturn().getResponse().getContentAsString();
         //then
         ExceptionResponse exceptions = assertDoesNotThrow(() -> objectMapper.readValue(result, ExceptionResponse.class), "It should return exceptions");
-        assertTrue(exceptions.getMessage().contains("recordExecutionFact.factDto: startTime is after finishTime"),
+        assertTrue(exceptions.getMessage().contains("factDto: startTime is after finishTime"),
                 "Should contain date time range validation message.");
-        assertTrue(exceptions.getMessage().contains("recordExecutionFact.factDto.description: length must be between 1 and 500"),
+        assertTrue(exceptions.getMessage().contains("factDto.description: length must be between 1 and 500"),
                 "Should contain description length validation message.");
         assertTrue(executionFactRepository.findAll().isEmpty(), "Execution facts table should be empty");
     }
@@ -448,6 +459,146 @@ class ExecutionFactControllerTest {
                 .andExpect(status().isOk());
         //then
         assertTrue(executionFactRepository.findById(saved.getId()).isPresent(), "It should not affect other records in db");
+    }
+
+    @Test
+    @SneakyThrows
+    void getFiltered_shouldReturnRightDataForGivenFilter() {
+        //given
+        saveRandomFacts();
+        Participant expectedParticipant = initialParticipants.get(0);
+        String executorEmail = expectedParticipant.getEmail();
+        LocalDateTime fromFinishTime = LocalDateTime.of(2003, 1, 1, 0, 0);
+        LocalDateTime toFinishTime = fromFinishTime.plusYears(1);
+        String description = "expected description";
+        Integer pageIndex = 1;
+        Integer pageSize = 1;
+        ExecutionFactFilterOptionsDto filterOptionsDto = new ExecutionFactFilterOptionsDto(
+                executorEmail, fromFinishTime, toFinishTime, description, pageIndex, pageSize
+        );
+        LocalDateTime finishTime = findMiddleDateTime(fromFinishTime, toFinishTime);
+        ExecutionFact factTemplate = ExecutionFact.builder()
+                .withDescription(description)
+                .withExecutor(expectedParticipant)
+                .withStartTime(finishTime.minusMonths(4))
+                .withFinishTime(finishTime)
+                .build();
+        ExecutionFact firstSuitable = executionFactRepository.saveAndFlush(factTemplate);
+        factTemplate.setId(null);
+        factTemplate.setFinishTime(finishTime.minusMonths(2));
+        ExecutionFact secondSuitable = executionFactRepository.saveAndFlush(factTemplate);
+        //when
+        String resultJson = mockMvc.perform(
+                        post("/api/v1/execution-facts/_list")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(filterOptionsDto)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn().getResponse().getContentAsString();
+        //then
+        List<ExecutionFact> actualFacts = objectMapper.readValue(resultJson, new TypeReference<>() {
+        });
+        assertEquals(1, actualFacts.size(),
+                "It should contain only one object as filter has pageSize specified");
+        assertTrue(firstSuitable.equals(actualFacts.get(0)) || secondSuitable.equals(actualFacts.get(0)),
+                "It should contain one of the suitable facts fot given filter");
+    }
+
+    private void saveRandomFacts() {
+        String[] characters = new String[]{
+                "a", "b", "c", "d", "e", "f", "g"
+        };
+        List<ExecutionFact> allFacts = IntStream.range(0, 10).mapToObj(
+                num -> saveAndGetExecutionFactFromDb(
+                        num + 1,
+                        initialParticipants.get(num % initialParticipants.size()),
+                        characters[num % characters.length]
+                )
+        ).toList();
+        executionFactRepository.saveAllAndFlush(allFacts);
+    }
+
+    private LocalDateTime findMiddleDateTime(LocalDateTime dateTime1, LocalDateTime dateTime2) {
+        ZoneOffset systemDefaultOffset = OffsetDateTime.now().getOffset();
+        long millis1 = dateTime1.toInstant(systemDefaultOffset).toEpochMilli();
+        long millis2 = dateTime2.toInstant(systemDefaultOffset).toEpochMilli();
+        long middleMillis = (millis1 + millis2) / 2;
+        return LocalDateTime.ofEpochSecond(middleMillis / 1000, 0, systemDefaultOffset);
+    }
+
+    @Test
+    @SneakyThrows
+    void getFiltered_shouldReturnExceptionMessageContainingAllValidationErrors_ifGivenInvalidDto() {
+        //given
+        String executorEmail = "bad%email";
+        LocalDateTime fromFinishTime = LocalDateTime.of(2003, 1, 1, 0, 0);
+        LocalDateTime toFinishTime = fromFinishTime.minusMonths(1);
+        String description = String.join("", Collections.nCopies(501, "a"));
+        Integer pageIndex = -1;
+        Integer pageSize = 0;
+        ExecutionFactFilterOptionsDto filterOptionsDto = new ExecutionFactFilterOptionsDto(
+                executorEmail, fromFinishTime, toFinishTime, description, pageIndex, pageSize
+        );
+        //when
+        String resultJson = mockMvc.perform(
+                        post("/api/v1/execution-facts/_list")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(filterOptionsDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn().getResponse().getContentAsString();
+        //then
+        ExceptionResponse exceptions = assertDoesNotThrow(() -> objectMapper.readValue(resultJson, ExceptionResponse.class), "It should return exceptions");
+        assertTrue(exceptions.getMessage().contains(
+                        "pageSize: must be greater than 0"),
+                "no pageSize message"
+        );
+        assertTrue(exceptions.getMessage().contains(
+                        "factFilterOptionsDto: fromFinishTime is after toFinishTime"),
+                "no range validation message"
+        );
+        assertTrue(exceptions.getMessage().contains(
+                        "description: length must be between 1 and 500"),
+                "no description message"
+        );
+        assertTrue(exceptions.getMessage().contains(
+                        "pageIndex: must be greater than or equal to 0"),
+                "no pageIndex message"
+        );
+        assertTrue(exceptions.getMessage().contains(
+                        "executorEmail: must be a well-formed email address"),
+                "no executorEmail message"
+        );
+    }
+
+    @Test
+    @SneakyThrows
+    void getFiltered_shouldReturnExceptionMessage_ifGivenPageSizeExceedsTheLimit() {
+        //given
+        Participant expectedParticipant = initialParticipants.get(0);
+        String executorEmail = expectedParticipant.getEmail();
+        LocalDateTime fromFinishTime = LocalDateTime.of(2003, 1, 1, 0, 0);
+        LocalDateTime toFinishTime = fromFinishTime.plusYears(1);
+        String description = "expected description";
+        Integer pageIndex = 1;
+        Integer pageSize = executionFactsMaxPageSize + 1;
+        ExecutionFactFilterOptionsDto filterOptionsDto = new ExecutionFactFilterOptionsDto(
+                executorEmail, fromFinishTime, toFinishTime, description, pageIndex, pageSize
+        );
+        //when
+        String resultJson = mockMvc.perform(
+                        post("/api/v1/execution-facts/_list")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(filterOptionsDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn().getResponse().getContentAsString();
+        //then
+        ExceptionResponse exceptions = assertDoesNotThrow(() -> objectMapper.readValue(resultJson, ExceptionResponse.class), "It should return exceptions");
+        assertTrue(exceptions.getMessage().contains(
+                        "pageSize: must be less then or equal to %s".formatted(executionFactsMaxPageSize)),
+                "no pageSize max value message"
+        );
     }
 
 }

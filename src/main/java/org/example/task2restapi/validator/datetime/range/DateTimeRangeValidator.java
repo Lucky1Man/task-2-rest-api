@@ -1,4 +1,4 @@
-package org.example.task2restapi.validator;
+package org.example.task2restapi.validator.datetime.range;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
