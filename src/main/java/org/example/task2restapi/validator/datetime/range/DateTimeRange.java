@@ -6,6 +6,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * This class holds date time range for validation purposes.
+ */
 @AllArgsConstructor
 @NoArgsConstructor
 @Data

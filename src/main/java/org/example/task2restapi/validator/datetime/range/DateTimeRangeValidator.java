@@ -6,12 +6,21 @@ import jakarta.validation.ConstraintValidatorContext;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Validates given date time ranges by ObjectWithDateTimeRanges interface.
+ */
 public class DateTimeRangeValidator implements ConstraintValidator<DateTimeRangeConstraint, ObjectWithDateTimeRanges> {
+
+    /**
+     * <p>Checks if from date is before to date in all given ranges.</p>
+     * If some date time range contains null values then that range is ignored.
+     * @return true if all ranges are valid, false if at least one is invalid.
+     */
     @Override
     public boolean isValid(ObjectWithDateTimeRanges objectWithDateTimeRanges, ConstraintValidatorContext constraintValidatorContext) {
         List<DateTimeRange> validatedRanges = objectWithDateTimeRanges.getValidatedRanges();
         constraintValidatorContext.disableDefaultConstraintViolation();
-        return validatedRanges.stream().anyMatch(range -> fromDateIsBeforeToDate(range, constraintValidatorContext));
+        return validatedRanges.stream().allMatch(range -> fromDateIsBeforeToDate(range, constraintValidatorContext));
     }
 
     private boolean fromDateIsBeforeToDate(DateTimeRange range, ConstraintValidatorContext ctx) {

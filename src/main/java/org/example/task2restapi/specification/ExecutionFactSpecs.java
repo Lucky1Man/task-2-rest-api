@@ -13,10 +13,17 @@ import org.example.task2restapi.entity.Participant_;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
+/**
+ * This class allows to create dynamic queries for ExecutionFact search.
+ */
 @Slf4j
 @Component
 public class ExecutionFactSpecs {
 
+    /**
+     * @param optionsDto filter
+     * @return specification that represents given filter
+     */
     public Specification<ExecutionFact> byFilterDto(ExecutionFactFilterOptionsDto optionsDto) {
         log.debug("generating specification for ExecutionFactFilterOptionsDto {}", optionsDto);
         return (root, query, builder) -> {
