@@ -198,6 +198,8 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 CSVPrinter csvPrinter = new CSVPrinter(new PrintWriter(out), CSVFormat.DEFAULT)
         ) {
+            csvPrinter.printRecord("id", "start_time", "finish_time",
+                    "executor_full_name", "executor_id", "description");
             for (GetExecutionFactDto fact : findAll(factFilterOptionsDto)) {
                 List<String> data = Arrays.asList(
                         String.valueOf(fact.getId()),

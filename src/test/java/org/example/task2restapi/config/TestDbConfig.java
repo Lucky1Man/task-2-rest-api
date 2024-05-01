@@ -15,7 +15,6 @@ public class TestDbConfig {
     public DataSource dataSource() {
         return new EmbeddedDatabaseBuilder()
                 .setType(EmbeddedDatabaseType.H2)
-                .addScript("classpath:sql/schema.sql")
                 .build();
     }
 

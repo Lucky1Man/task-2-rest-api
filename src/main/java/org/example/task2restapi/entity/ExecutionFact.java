@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -27,7 +28,10 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity(name = "ExecutionFact")
-@Table(name = "execution_facts")
+@Table(
+        name = "execution_facts",
+        indexes = @Index(name = "description_index", columnList = "description")
+)
 @Getter
 @Setter
 @ToString

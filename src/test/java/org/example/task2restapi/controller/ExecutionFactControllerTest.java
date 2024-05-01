@@ -26,6 +26,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -55,6 +56,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(
         classes = {Task2RestApiApplication.class, TestDbConfig.class}
 )
+@TestPropertySource(properties = {
+        """
+        spring.liquibase.contexts=none
+        """
+})
 @AutoConfigureMockMvc
 class ExecutionFactControllerTest {
 
@@ -644,15 +650,17 @@ class ExecutionFactControllerTest {
                 .andExpect(content().contentType(MediaType.parseMediaType("application/csv")))
                 .andReturn().getResponse().getContentAsString();
         //then
+        String patter = "id,start_time,finish_time,executor_full_name,executor_id,description\r\n" +
+                        "%s,%s,%s,%s,%s,%s\r\n";
         assertTrue(
-                "%s,%s,%s,%s,%s,%s\r\n".formatted(firstSuitable.getId(),
+                patter.formatted(firstSuitable.getId(),
                                 firstSuitable.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),
                                 firstSuitable.getFinishTime().format(DateTimeFormatter.ISO_DATE_TIME),
                                 firstSuitable.getExecutor().getFullName(), firstSuitable.getExecutor().getId(),
                                 firstSuitable.getDescription())
                         .equals(resultString)
                 ||
-                "%s,%s,%s,%s,%s,%s\r\n".formatted(secondSuitable.getId(),
+                patter.formatted(secondSuitable.getId(),
                                 secondSuitable.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),
                                 secondSuitable.getFinishTime().format(DateTimeFormatter.ISO_DATE_TIME),
                                 secondSuitable.getExecutor().getFullName(), secondSuitable.getExecutor().getId(),
