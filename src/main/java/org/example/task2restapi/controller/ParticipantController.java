@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.task2restapi.dto.GetParticipantDto;
 import org.example.task2restapi.dto.RegisterParticipantDto;
 import org.example.task2restapi.dto.UpdateParticipantDto;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/participants")
@@ -47,7 +49,10 @@ public class ParticipantController {
             )
     )
     public List<GetParticipantDto> getParticipants() {
-        return participantService.findAll();
+        log.debug("getting all participants");
+        List<GetParticipantDto> all = participantService.findAll();
+        log.debug("got: {}", all);
+        return all;
     }
 
     @PostMapping
@@ -67,8 +72,11 @@ public class ParticipantController {
             )
     )
     public ResponseEntity<Map<String, UUID>> register(@RequestBody RegisterParticipantDto participantDto) {
+        log.debug("registering participant: {}", participantDto);
+        UUID id = participantService.register(participantDto);
+        log.debug("registered with id: {}", id);
         return ResponseEntity.status(HttpStatus.CREATED.value())
-                .body(Map.of("id", participantService.register(participantDto)));
+                .body(Map.of("id", id));
     }
 
     @PutMapping("/{id}")
@@ -81,7 +89,9 @@ public class ParticipantController {
             description = "Means that execution fact was updated and all given parameters were changed"
     )
     public void updateParticipant(@PathVariable UUID id, @RequestBody UpdateParticipantDto participantDto) {
+        log.debug("updating participant with id {}, with data {}", id, participantDto);
         participantService.updateParticipant(id, participantDto);
+        log.debug("updated participant with id {}", id);
     }
 
     @DeleteMapping("/{id}")
@@ -91,7 +101,9 @@ public class ParticipantController {
             description = "Participant deleted"
     )
     public void deleteParticipant(@PathVariable UUID id) {
+        log.debug("deleting participant with id {}", id);
         participantService.deleteParticipant(id);
+        log.debug("deleted participant with id {}", id);
     }
 
 }

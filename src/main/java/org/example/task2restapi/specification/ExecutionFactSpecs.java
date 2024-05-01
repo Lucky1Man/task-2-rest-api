@@ -4,6 +4,7 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import lombok.extern.slf4j.Slf4j;
 import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.entity.ExecutionFact;
 import org.example.task2restapi.entity.ExecutionFact_;
@@ -12,10 +13,12 @@ import org.example.task2restapi.entity.Participant_;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 public class ExecutionFactSpecs {
 
     public Specification<ExecutionFact> byFilterDto(ExecutionFactFilterOptionsDto optionsDto) {
+        log.debug("generating specification for ExecutionFactFilterOptionsDto {}", optionsDto);
         return (root, query, builder) -> {
             Predicate resultQuery = builder.conjunction();
             resultQuery = addEmailCriteria(optionsDto, root, builder, resultQuery);
@@ -37,6 +40,7 @@ public class ExecutionFactSpecs {
                             builder.lessThanOrEqualTo(root.get(ExecutionFact_.finishTime), optionsDto.getToFinishTime())
                     )
             );
+            log.debug("added finish time criteria");
         }
         return resultQuery;
     }
@@ -50,6 +54,7 @@ public class ExecutionFactSpecs {
                     resultQuery,
                     builder.equal(root.get(ExecutionFact_.description), optionsDto.getDescription())
             );
+            log.debug("added description criteria");
         }
         return resultQuery;
     }
@@ -64,6 +69,7 @@ public class ExecutionFactSpecs {
                     resultQuery,
                     builder.equal(join.get(Participant_.email), optionsDto.getExecutorEmail())
             );
+            log.debug("added email criteria");
         }
         return resultQuery;
     }

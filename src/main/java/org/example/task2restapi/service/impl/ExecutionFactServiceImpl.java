@@ -9,6 +9,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotNull;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.example.task2restapi.controller.ExceptionResponse;
@@ -49,6 +50,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @Transactional
 public class ExecutionFactServiceImpl implements ExecutionFactService {
@@ -89,6 +91,7 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
 
     @PostConstruct
     private void configureModelMapper() {
+        log.debug("configuring model mapper type map RecordExecutionFactDto=>ExecutionFact ");
         modelMapper.emptyTypeMap(RecordExecutionFactDto.class, ExecutionFact.class).addMappings(mapping -> {
             mapping.skip(ExecutionFact::setId);
             mapping.using((MappingContext<UUID, Participant> ctx) -> {
@@ -110,40 +113,62 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
                     ExecutionFact::setStartTime
             );
         }).implicitMappings();
+        log.debug("configured model mapper {}", modelMapper.getTypeMaps());
     }
 
     private Participant getRawParticipantOrThrow(UUID id) {
         return participantRepository.findById(id).orElseThrow(() ->
-                new IllegalArgumentException("Executor with id '%s' not found".formatted(id))
+                {
+                    IllegalArgumentException ex = new IllegalArgumentException("Executor with id '%s' not found".formatted(id));
+                    log.debug("getRawParticipantOrThrow()", ex);
+                    return ex;
+                }
         );
     }
 
     @Override
     public UUID recordExecutionFact(@NotNull @Valid RecordExecutionFactDto factDto) {
         if (factDto.getFinishTime() != null && factDto.getStartTime() == null) {
-            throw new IllegalArgumentException("Start time must be specified if finish time is");
+            IllegalArgumentException ex = new IllegalArgumentException("Start time must be specified if finish time is");
+            log.debug("recordExecutionFact()", ex);
+            throw ex;
         }
+        log.debug("mapping RecordExecutionFactDto {}", factDto);
         ExecutionFact executionFact = modelMapper.map(factDto, ExecutionFact.class);
-        return factRepository.save(executionFact).getId();
+        log.debug("saving execution fact {}", executionFact);
+        ExecutionFact saved = factRepository.save(executionFact);
+        log.debug("saved execution fact {}", saved);
+        return saved.getId();
     }
 
     @Override
     public GetDetailedExecutionFactDto getById(@NotNull UUID id) {
-        return modelMapper.map(
-                getRawFactOrThrowNotFound(id),
+        log.debug("getting execution fact by id {}", id);
+        ExecutionFact got = getRawFactOrThrowNotFound(id);
+        log.debug("got {}", got);
+        GetDetailedExecutionFactDto mapped = modelMapper.map(
+                got,
                 GetDetailedExecutionFactDto.class
         );
+        log.debug("mapped to GetDetailedExecutionFactDto {}", mapped);
+        return mapped;
     }
 
     private ExecutionFact getRawFactOrThrowNotFound(UUID id) {
         return factRepository.findById(id).orElseThrow(() ->
-                new IllegalArgumentException("Execution fact with id '%s' not found".formatted(id))
+                {
+                    IllegalArgumentException ex = new IllegalArgumentException("Execution fact with id '%s' not found".formatted(id));
+                    log.debug("getRawFactOrThrowNotFound()", ex);
+                    return ex;
+                }
         );
     }
 
     @Override
     public void updateExecutionFact(@NotNull UUID id, @NotNull @Valid UpdateExecutionFactDto factDto) {
+        log.debug("updating execution fact with id {} with data {}", id, factDto);
         ExecutionFact fact = getRawFactOrThrowNotFound(id);
+        log.debug("found execution fact {}", fact);
         if (factDto.getDescription() != null) {
             fact.setDescription(factDto.getDescription());
         }
@@ -156,29 +181,38 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
         if (factDto.getFinishTime() != null) {
             fact.setFinishTime(factDto.getFinishTime());
         }
+        log.debug("updating execution fact with data {}", fact);
     }
 
     @Override
     public void deleteById(@NotNull UUID id) {
+        log.debug("deleting execution fact with id {}", id);
         factRepository.deleteById(id);
     }
 
     @Override
     public List<GetExecutionFactDto> findAll(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto) {
+        log.debug("finding execution facts by filter {}", factFilterOptionsDto);
         validatePageSize(factFilterOptionsDto);
         assignDefaultValues(factFilterOptionsDto);
-        return factRepository.findAll(
-                        executionFactSpecs.byFilterDto(factFilterOptionsDto),
-                        PageRequest.of(factFilterOptionsDto.getPageIndex(), factFilterOptionsDto.getPageSize())
-                ).getContent().stream()
+        List<ExecutionFact> found = factRepository.findAll(
+                executionFactSpecs.byFilterDto(factFilterOptionsDto),
+                PageRequest.of(factFilterOptionsDto.getPageIndex(), factFilterOptionsDto.getPageSize())
+        ).getContent();
+        log.debug("found execution facts {}", found);
+        List<GetExecutionFactDto> returned = found.stream()
                 .map(entity -> modelMapper.map(entity, GetExecutionFactDto.class))
                 .toList();
+        log.debug("mapped execution facts {}", returned);
+        return returned;
     }
 
     private void validatePageSize(ExecutionFactFilterOptionsDto factFilterOptionsDto) {
         Integer pageSize = factFilterOptionsDto.getPageSize();
         if (pageSize != null && pageSize > getFactsMaxPageSize) {
-            throw new IllegalArgumentException("pageSize: must be less then or equal to %s".formatted(getFactsMaxPageSize));
+            IllegalArgumentException ex = new IllegalArgumentException("pageSize: must be less then or equal to %s".formatted(getFactsMaxPageSize));
+            log.debug("validatePageSize()", ex);
+            throw ex;
         }
     }
 
@@ -190,16 +224,20 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
         if (factFilterOptionsDto.getPageSize() == null) {
             factFilterOptionsDto.setPageSize(50);
         }
+        log.debug("assigned default data to ExecutionFactFilterOptionsDto {}", factFilterOptionsDto);
     }
 
     @Override
     public ByteArrayInputStream generateCsvReport(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto) {
+        log.debug("generating csv report for execution facts for filter {}", factFilterOptionsDto);
         try (
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 CSVPrinter csvPrinter = new CSVPrinter(new PrintWriter(out), CSVFormat.DEFAULT)
         ) {
-            csvPrinter.printRecord("id", "start_time", "finish_time",
-                    "executor_full_name", "executor_id", "description");
+            Object[] titles = {"id", "start_time", "finish_time",
+                    "executor_full_name", "executor_id", "description"};
+            csvPrinter.printRecord(titles);
+            log.debug("added titles {}", titles);
             for (GetExecutionFactDto fact : findAll(factFilterOptionsDto)) {
                 List<String> data = Arrays.asList(
                         String.valueOf(fact.getId()),
@@ -210,16 +248,21 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
                         fact.getDescription()
                 );
                 csvPrinter.printRecord(data);
+                log.debug("added row {}", data);
             }
             csvPrinter.flush();
+            log.debug("finished generating csv");
             return new ByteArrayInputStream(out.toByteArray());
         } catch (IOException e) {
-            throw new UncheckedIOException("Fail to import data to CSV file: " + e.getMessage(), e);
+            UncheckedIOException ex = new UncheckedIOException("Fail to import data to CSV file: " + e.getMessage(), e);
+            log.debug("generateCsvReport()", ex);
+            throw ex;
         }
     }
 
     @Override
     public ExecutionFactUploadResultDto uploadFromFile(@NotNull MultipartFile multipart) {
+        log.debug("uploading data from file");
         try {
             byte[] fileBytes = multipart.getBytes();
             int importedCount = 0;
@@ -231,13 +274,17 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
                 if(exceptions.isPresent()) {
                     invalidRecordDtosToItsValidationExceptions.add(exceptions.get());
                     failedCount++;
+                    log.debug("failed to load {}", exceptions.get());
                 } else {
                     importedCount++;
+                    log.debug("loaded {}", dto);
                 }
             }
             return new ExecutionFactUploadResultDto(importedCount, failedCount, invalidRecordDtosToItsValidationExceptions);
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            UncheckedIOException ex = new UncheckedIOException(e);
+            log.debug("uploadFromFile()", ex);
+            throw ex;
         }
     }
 

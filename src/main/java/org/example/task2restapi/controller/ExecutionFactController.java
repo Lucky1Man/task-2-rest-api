@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.dto.ExecutionFactUploadResultDto;
 import org.example.task2restapi.dto.GetDetailedExecutionFactDto;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/execution-facts")
@@ -69,8 +71,11 @@ public class ExecutionFactController {
             )
     )
     public ResponseEntity<Map<String, UUID>> recordExecutionFact(@RequestBody RecordExecutionFactDto factDto) {
+        log.debug("recording execution fact: {}", factDto);
+        UUID id = factService.recordExecutionFact(factDto);
+        log.debug("recorded execution fact, assigned id = {}", id);
         return ResponseEntity.status(HttpStatus.CREATED.value())
-                .body(Map.of("id", factService.recordExecutionFact(factDto)));
+                .body(Map.of("id", id));
     }
 
     @GetMapping("/{id}")
@@ -92,7 +97,10 @@ public class ExecutionFactController {
             )
     )
     public GetDetailedExecutionFactDto getById(@PathVariable UUID id) {
-        return factService.getById(id);
+        log.debug("getting execution fact by id: {}", id);
+        GetDetailedExecutionFactDto byId = factService.getById(id);
+        log.debug("got execution fact: {}", byId);
+        return byId;
     }
 
     @PutMapping("/{id}")
@@ -113,7 +121,9 @@ public class ExecutionFactController {
             )
     )
     public void updateExecutionFact(@PathVariable UUID id, @RequestBody UpdateExecutionFactDto factDto) {
+        log.debug("updating execution fact with id {} with data {}", id, factDto);
         factService.updateExecutionFact(id, factDto);
+        log.debug("updated  execution fact with id {}", id);
     }
 
     @DeleteMapping("/{id}")
@@ -125,7 +135,9 @@ public class ExecutionFactController {
             description = "Means that execution fact was deleted"
     )
     public void deleteExecutionFact(@PathVariable UUID id) {
+        log.debug("deleting execution fact with id {}", id);
         factService.deleteById(id);
+        log.debug("deleted execution fact with id {}", id);
     }
 
     @PostMapping(path = "/_list")
@@ -153,7 +165,10 @@ public class ExecutionFactController {
             )
     )
     public List<GetExecutionFactDto> getFiltered(@RequestBody ExecutionFactFilterOptionsDto factFilterOptionsDto) {
-        return factService.findAll(factFilterOptionsDto);
+        log.debug("getting filtered execution facts by {}", factFilterOptionsDto);
+        List<GetExecutionFactDto> result = factService.findAll(factFilterOptionsDto);
+        log.debug("got filtered execution facts {}", result);
+        return result;
     }
 
     @PostMapping(value = "/_report", produces = "application/csv")
@@ -178,6 +193,7 @@ public class ExecutionFactController {
             )
     )
     public ResponseEntity<Resource> generateReport(@RequestBody ExecutionFactFilterOptionsDto factFilterOptionsDto) {
+        log.debug("getting execution files in csv format by filter {}", factFilterOptionsDto);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=execution-facts.csv")
                 .contentType(MediaType.parseMediaType("application/csv"))
@@ -197,7 +213,10 @@ public class ExecutionFactController {
             )
     )
     public ExecutionFactUploadResultDto uploadFromFile(@RequestParam("file") MultipartFile multipart) {
-        return factService.uploadFromFile(multipart);
+        log.debug("uploading execution facts from file");
+        ExecutionFactUploadResultDto result = factService.uploadFromFile(multipart);
+        log.debug("upload result: {}", result);
+        return result;
     }
 
 }
