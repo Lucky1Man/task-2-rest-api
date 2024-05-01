@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -58,12 +59,16 @@ public class ParticipantController {
             description = "Participant was successfully registered. It returns id of created participant",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = UUID.class)
+                    schema = @Schema(pattern = """
+                            {
+                                "id": "0cecc52a-2342-4dfd-83e6-dd6a38a3c119"
+                            }
+                            """)
             )
     )
-    public ResponseEntity<UUID> register(@RequestBody RegisterParticipantDto participantDto) {
+    public ResponseEntity<Map<String, UUID>> register(@RequestBody RegisterParticipantDto participantDto) {
         return ResponseEntity.status(HttpStatus.CREATED.value())
-                .body(participantService.register(participantDto));
+                .body(Map.of("id", participantService.register(participantDto)));
     }
 
     @PutMapping("/{id}")
@@ -80,22 +85,10 @@ public class ParticipantController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(description = "Deletes participant by specified id. Returns 404 if no participant was found")
+    @Operation(description = "Deletes participant by specified id. If given id does not exist then it is ignored.")
     @ApiResponse(
             responseCode = "200",
-            description = "Returns participant with specified id or email",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = GetParticipantDto.class)
-            )
-    )
-    @ApiResponse(
-            responseCode = "404",
-            description = "Participant with specified id was not found",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = ExceptionResponse.class)
-            )
+            description = "Participant deleted"
     )
     public void deleteParticipant(@PathVariable UUID id) {
         participantService.deleteParticipant(id);

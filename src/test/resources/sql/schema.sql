@@ -1,3 +1,6 @@
+drop table if exists execution_facts;
+drop table if exists participants;
+
 create table execution_facts
 (
     id          uuid         not null,

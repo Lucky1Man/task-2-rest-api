@@ -96,7 +96,7 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
                         if (id == null) {
                             return null;
                         } else {
-                            return getRawParticipantOfThrowNorFound(id);
+                            return getRawParticipantOrThrow(id);
                         }
                     }
             ).map(RecordExecutionFactDto::getExecutorId, ExecutionFact::setExecutor);
@@ -112,7 +112,7 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
         }).implicitMappings();
     }
 
-    private Participant getRawParticipantOfThrowNorFound(UUID id) {
+    private Participant getRawParticipantOrThrow(UUID id) {
         return participantRepository.findById(id).orElseThrow(() ->
                 new IllegalArgumentException("Executor with id '%s' not found".formatted(id))
         );
@@ -148,7 +148,7 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
             fact.setDescription(factDto.getDescription());
         }
         if (factDto.getExecutorId() != null) {
-            fact.setExecutor(getRawParticipantOfThrowNorFound(factDto.getExecutorId()));
+            fact.setExecutor(getRawParticipantOrThrow(factDto.getExecutorId()));
         }
         if (factDto.getStartTime() != null) {
             fact.setStartTime(factDto.getStartTime());

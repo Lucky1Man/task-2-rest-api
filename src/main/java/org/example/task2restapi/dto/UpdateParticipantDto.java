@@ -1,6 +1,7 @@
 package org.example.task2restapi.dto;
 
 import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,6 +18,7 @@ public class UpdateParticipantDto {
 
     @Length(min = 3, max = 320)
     @Nullable
+    @Email
     private String email;
 
 }

@@ -53,7 +53,11 @@ public class ExecutionFactController {
             description = "Returns id of execution fact that was recorded.",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = UUID.class)
+                    schema = @Schema(pattern = """
+                            {
+                                "id": "0cecc52a-2342-4dfd-83e6-dd6a38a3c119"
+                            }
+                            """)
             )
     )
     @ApiResponse(
@@ -76,7 +80,7 @@ public class ExecutionFactController {
             description = "Retrieved",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = GetExecutionFactDto.class)
+                    schema = @Schema(implementation = GetDetailedExecutionFactDto.class)
             )
     )
     @ApiResponse(
