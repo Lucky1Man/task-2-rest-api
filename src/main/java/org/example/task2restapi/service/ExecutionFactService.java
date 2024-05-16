@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.dto.ExecutionFactUploadResultDto;
 import org.example.task2restapi.dto.GetDetailedExecutionFactDto;
-import org.example.task2restapi.dto.GetExecutionFactDto;
+import org.example.task2restapi.dto.GetFilteredExecutionFactsDto;
 import org.example.task2restapi.dto.RecordExecutionFactDto;
 import org.example.task2restapi.dto.UpdateExecutionFactDto;
 import org.springframework.validation.annotation.Validated;
@@ -13,7 +13,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.UncheckedIOException;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -57,7 +56,7 @@ public interface ExecutionFactService {
      * @throws IllegalArgumentException given invalid filter
      * @throws jakarta.validation.ConstraintViolationException given invalid filter
      */
-    List<GetExecutionFactDto> findAll(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto);
+    GetFilteredExecutionFactsDto findAll(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto);
 
     /**
      * @param factFilterOptionsDto filter parameters

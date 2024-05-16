@@ -12,6 +12,7 @@ import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.dto.ExecutionFactUploadResultDto;
 import org.example.task2restapi.dto.GetDetailedExecutionFactDto;
 import org.example.task2restapi.dto.GetExecutionFactDto;
+import org.example.task2restapi.dto.GetFilteredExecutionFactsDto;
 import org.example.task2restapi.dto.RecordExecutionFactDto;
 import org.example.task2restapi.dto.UpdateExecutionFactDto;
 import org.example.task2restapi.service.ExecutionFactService;
@@ -159,14 +160,12 @@ public class ExecutionFactController {
             description = "Given filter is invalid, detailed message provided",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    array = @ArraySchema(
-                            schema = @Schema(implementation = ExceptionResponse.class)
-                    )
+                    schema = @Schema(implementation = GetFilteredExecutionFactsDto.class)
             )
     )
-    public List<GetExecutionFactDto> getFiltered(@RequestBody ExecutionFactFilterOptionsDto factFilterOptionsDto) {
+    public GetFilteredExecutionFactsDto getFiltered(@RequestBody ExecutionFactFilterOptionsDto factFilterOptionsDto) {
         log.debug("getting filtered execution facts by {}", factFilterOptionsDto);
-        List<GetExecutionFactDto> result = factService.findAll(factFilterOptionsDto);
+        GetFilteredExecutionFactsDto result = factService.findAll(factFilterOptionsDto);
         log.debug("got filtered execution facts {}", result);
         return result;
     }

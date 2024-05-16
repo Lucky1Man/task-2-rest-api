@@ -17,6 +17,7 @@ import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.dto.ExecutionFactUploadResultDto;
 import org.example.task2restapi.dto.GetDetailedExecutionFactDto;
 import org.example.task2restapi.dto.GetExecutionFactDto;
+import org.example.task2restapi.dto.GetFilteredExecutionFactsDto;
 import org.example.task2restapi.dto.RecordExecutionFactDto;
 import org.example.task2restapi.dto.RecordFactToItsValidationExceptions;
 import org.example.task2restapi.dto.UpdateExecutionFactDto;
@@ -31,6 +32,7 @@ import org.modelmapper.MappingException;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.spi.MappingContext;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -191,20 +193,24 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
     }
 
     @Override
-    public List<GetExecutionFactDto> findAll(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto) {
+    public GetFilteredExecutionFactsDto findAll(@NotNull @Valid ExecutionFactFilterOptionsDto factFilterOptionsDto) {
         log.debug("finding execution facts by filter {}", factFilterOptionsDto);
         validatePageSize(factFilterOptionsDto);
         assignDefaultValues(factFilterOptionsDto);
-        List<ExecutionFact> found = factRepository.findAll(
+        Page<ExecutionFact> pageRequestResult = factRepository.findAll(
                 executionFactSpecs.byFilterDto(factFilterOptionsDto),
                 PageRequest.of(factFilterOptionsDto.getPageIndex(), factFilterOptionsDto.getPageSize())
-        ).getContent();
+        );
+        List<ExecutionFact> found = pageRequestResult.getContent();
         log.debug("found execution facts {}", found);
         List<GetExecutionFactDto> returned = found.stream()
                 .map(entity -> modelMapper.map(entity, GetExecutionFactDto.class))
                 .toList();
         log.debug("mapped execution facts {}", returned);
-        return returned;
+        return GetFilteredExecutionFactsDto.builder()
+                .withExecutionFacts(returned)
+                .withTotalPages(pageRequestResult.getTotalPages())
+                .build();
     }
 
     private void validatePageSize(ExecutionFactFilterOptionsDto factFilterOptionsDto) {
@@ -238,7 +244,7 @@ public class ExecutionFactServiceImpl implements ExecutionFactService {
                     "executor_full_name", "executor_id", "description"};
             csvPrinter.printRecord(titles);
             log.debug("added titles {}", titles);
-            for (GetExecutionFactDto fact : findAll(factFilterOptionsDto)) {
+            for (GetExecutionFactDto fact : findAll(factFilterOptionsDto).getExecutionFacts()) {
                 List<String> data = Arrays.asList(
                         String.valueOf(fact.getId()),
                         fact.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME),

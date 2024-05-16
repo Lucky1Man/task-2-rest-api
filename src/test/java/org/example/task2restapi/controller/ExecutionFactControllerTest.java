@@ -8,6 +8,8 @@ import org.example.task2restapi.config.TestDbConfig;
 import org.example.task2restapi.dto.ExecutionFactFilterOptionsDto;
 import org.example.task2restapi.dto.ExecutionFactUploadResultDto;
 import org.example.task2restapi.dto.GetDetailedExecutionFactDto;
+import org.example.task2restapi.dto.GetExecutionFactDto;
+import org.example.task2restapi.dto.GetFilteredExecutionFactsDto;
 import org.example.task2restapi.dto.GetParticipantDto;
 import org.example.task2restapi.dto.RecordExecutionFactDto;
 import org.example.task2restapi.dto.RecordFactToItsValidationExceptions;
@@ -489,16 +491,18 @@ class ExecutionFactControllerTest {
                 executorEmail, fromFinishTime, toFinishTime, description, pageIndex, pageSize
         );
         LocalDateTime finishTime = findMiddleDateTime(fromFinishTime, toFinishTime);
-        ExecutionFact factTemplate = ExecutionFact.builder()
+        ExecutionFact firstSuitable = executionFactRepository.saveAndFlush(ExecutionFact.builder()
                 .withDescription(description)
                 .withExecutor(expectedParticipant)
                 .withStartTime(finishTime.minusMonths(4))
                 .withFinishTime(finishTime)
-                .build();
-        ExecutionFact firstSuitable = executionFactRepository.saveAndFlush(factTemplate);
-        factTemplate.setId(null);
-        factTemplate.setFinishTime(finishTime.minusMonths(2));
-        ExecutionFact secondSuitable = executionFactRepository.saveAndFlush(factTemplate);
+                .build());
+        ExecutionFact secondSuitable = executionFactRepository.saveAndFlush(ExecutionFact.builder()
+                .withDescription(description)
+                .withExecutor(expectedParticipant)
+                .withStartTime(finishTime.minusMonths(2))
+                .withFinishTime(finishTime)
+                .build());
         //when
         String resultJson = mockMvc.perform(
                         post("/api/v1/execution-facts/_list")
@@ -508,12 +512,13 @@ class ExecutionFactControllerTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andReturn().getResponse().getContentAsString();
         //then
-        List<ExecutionFact> actualFacts = objectMapper.readValue(resultJson, new TypeReference<>() {
-        });
-        assertEquals(1, actualFacts.size(),
+        GetFilteredExecutionFactsDto actualFacts = objectMapper.readValue(resultJson, GetFilteredExecutionFactsDto.class);
+        List<GetExecutionFactDto> facts = actualFacts.getExecutionFacts();
+        assertEquals(1, facts.size(),
                 "It should contain only one object as filter has pageSize specified");
-        assertTrue(firstSuitable.equals(actualFacts.get(0)) || secondSuitable.equals(actualFacts.get(0)),
+        assertTrue(getDtoEqualsEntity(firstSuitable, facts.get(0)) || getDtoEqualsEntity(secondSuitable,  facts.get(0)),
                 "It should contain one of the suitable facts fot given filter");
+        assertEquals(2, actualFacts.getTotalPages(), "should have right amount of total pages");
     }
 
     private void saveRandomFacts() {
@@ -536,6 +541,15 @@ class ExecutionFactControllerTest {
         long millis2 = dateTime2.toInstant(systemDefaultOffset).toEpochMilli();
         long middleMillis = (millis1 + millis2) / 2;
         return LocalDateTime.ofEpochSecond(middleMillis / 1000, 0, systemDefaultOffset);
+    }
+
+    private boolean getDtoEqualsEntity(ExecutionFact entity, GetExecutionFactDto factDto) {
+        return entity.getId().equals(factDto.getId()) &&
+               entity.getExecutor().getId().equals(factDto.getExecutorId()) &&
+               entity.getExecutor().getFullName().equals(factDto.getExecutorFullName()) &&
+               entity.getDescription().equals(factDto.getDescription()) &&
+               entity.getStartTime().equals(factDto.getStartTime()) &&
+               entity.getFinishTime().equals(factDto.getFinishTime());
     }
 
     @Test
