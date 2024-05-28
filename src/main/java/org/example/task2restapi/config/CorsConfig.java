@@ -18,7 +18,7 @@ public class CorsConfig {
                 registry.addMapping("/api/**")
                         .allowedMethods("*")
                         .allowedHeaders("*")
-                        .allowedOrigins("http://localhost:3050/");
+                        .allowedOrigins("http://localhost:3050/", "http://localhost:8888/");
             }
 
         };

@@ -41,4 +41,6 @@ public interface ParticipantService {
      * @param id id of participant to be deleted
      */
     void deleteParticipant(@NotNull UUID id);
+
+    GetParticipantDto getById(@NotNull UUID id);
 }

@@ -106,4 +106,26 @@ public class ParticipantController {
         log.debug("deleted participant with id {}", id);
     }
 
+    @GetMapping("/{id}")
+    @Operation(description = "Returns participant by given id.")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Participant returned.",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = GetParticipantDto.class)
+            )
+    )
+    @ApiResponse(
+            responseCode = "400",
+            description = "Means that participant with given id was not found",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = ExceptionResponse.class)
+            )
+    )
+    public GetParticipantDto getById(@PathVariable UUID id) {
+        return participantService.getById(id);
+    }
+
 }

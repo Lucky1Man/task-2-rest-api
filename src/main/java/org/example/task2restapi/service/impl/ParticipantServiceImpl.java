@@ -83,4 +83,11 @@ public class ParticipantServiceImpl implements ParticipantService {
         log.debug("deleting participant with id {}", id);
         participantRepository.deleteById(id);
     }
+
+    @Override
+    public GetParticipantDto getById(@NotNull UUID id) {
+        return modelMapper.map(participantRepository.findById(id).orElseThrow(
+                () -> new IllegalArgumentException("Participant with id '%s' not found".formatted(id))
+        ), GetParticipantDto.class);
+    }
 }
