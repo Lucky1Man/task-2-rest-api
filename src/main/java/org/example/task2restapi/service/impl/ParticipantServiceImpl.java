@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.profitsoft.kafka.messages.SimpleEmailDto;
 import org.example.task2restapi.dto.GetParticipantDto;
 import org.example.task2restapi.dto.RegisterParticipantDto;
 import org.example.task2restapi.dto.UpdateParticipantDto;
@@ -12,6 +13,11 @@ import org.example.task2restapi.entity.Participant;
 import org.example.task2restapi.repository.ParticipantRepository;
 import org.example.task2restapi.service.ParticipantService;
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaOperations;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -26,6 +32,11 @@ public class ParticipantServiceImpl implements ParticipantService {
     private final ParticipantRepository participantRepository;
 
     private final ModelMapper modelMapper;
+
+    @Value("${kafka.topic.simpleEmail}")
+    private String simpleEmailTopic;
+
+    private final KafkaOperations<String, SimpleEmailDto> kafkaOperations;
 
     @Override
     public List<GetParticipantDto> findAll() {
@@ -47,7 +58,17 @@ public class ParticipantServiceImpl implements ParticipantService {
         log.debug("mapped participant {}", mapped);
         Participant saved = participantRepository.save(mapped);
         log.debug("saved participant {}", saved);
+        sendNewUserEmailNotificationToAdmin(saved);
         return saved.getId();
+    }
+
+    private void sendNewUserEmailNotificationToAdmin(Participant newUser) {
+        Message<SimpleEmailDto> message = MessageBuilder
+                .withPayload(new SimpleEmailDto("User with email: %s registered".formatted(newUser.getEmail())))
+                .setHeader(KafkaHeaders.TOPIC, simpleEmailTopic)
+                .setHeader(KafkaHeaders.KEY, newUser.getId().toString())
+                .build();
+        kafkaOperations.send(message);
     }
 
     private void throwIfEmailTaken(String email) {

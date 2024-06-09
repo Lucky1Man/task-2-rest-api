@@ -1,4 +1,10 @@
 spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      client-id: ${spring.application.name}
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
   liquibase:
     contexts: example-showoff
   servlet:
@@ -14,9 +20,13 @@ spring:
     url: jdbc:postgresql://${DB_ADDRESS}:5432/${DB_NAME}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-
+server:
+  port: 8081
 configuration:
   endpoints:
     execution-fact:
       _list:
         max-page-size: 500
+kafka:
+  topic:
+    simpleEmail: simpleEmail
