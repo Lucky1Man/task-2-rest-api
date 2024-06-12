@@ -11,6 +11,7 @@ import org.example.task2restapi.dto.RegisterParticipantDto;
 import org.example.task2restapi.dto.UpdateParticipantDto;
 import org.example.task2restapi.entity.Participant;
 import org.example.task2restapi.repository.ParticipantRepository;
+import org.example.task2restapi.service.DateTimeService;
 import org.example.task2restapi.service.ParticipantService;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,7 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,6 +39,8 @@ public class ParticipantServiceImpl implements ParticipantService {
     private String simpleEmailTopic;
 
     private final KafkaOperations<String, SimpleEmailDto> kafkaOperations;
+
+    private final DateTimeService dateTimeService;
 
     @Override
     public List<GetParticipantDto> findAll() {
@@ -64,7 +68,13 @@ public class ParticipantServiceImpl implements ParticipantService {
 
     private void sendNewUserEmailNotificationToAdmin(Participant newUser) {
         Message<SimpleEmailDto> message = MessageBuilder
-                .withPayload(new SimpleEmailDto("User with email: %s registered".formatted(newUser.getEmail())))
+                .withPayload(
+                        new SimpleEmailDto("no.reply.new.account.notification@gmail.com",
+                                List.of(newUser.getEmail()),
+                                "New user notification",
+                                "You were registered at our site! Link to site ....",
+                                Date.from(dateTimeService.instantUtcNow()))
+                )
                 .setHeader(KafkaHeaders.TOPIC, simpleEmailTopic)
                 .setHeader(KafkaHeaders.KEY, newUser.getId().toString())
                 .build();
@@ -82,18 +92,18 @@ public class ParticipantServiceImpl implements ParticipantService {
     @Override
     public void updateParticipant(@NotNull UUID id, @Valid @NotNull UpdateParticipantDto participantDto) {
         log.debug("updating participant with id {}, with data {}", id, participantDto);
-        Participant participant = participantRepository.findById(id).orElseThrow( () ->
+        Participant participant = participantRepository.findById(id).orElseThrow(() ->
                 {
                     IllegalArgumentException ex = new IllegalArgumentException("Participant with id '%s' not found".formatted(id));
                     log.debug("updateParticipant()", ex);
                     return ex;
                 }
         );
-        if(participantDto.getEmail() != null) {
+        if (participantDto.getEmail() != null) {
             throwIfEmailTaken(participantDto.getEmail());
             participant.setEmail(participantDto.getEmail());
         }
-        if(participantDto.getFullName() != null) {
+        if (participantDto.getFullName() != null) {
             participant.setFullName(participantDto.getFullName());
         }
         log.debug("updated participant {}", participant);
